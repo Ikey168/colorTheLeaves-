@@ -33,6 +33,15 @@ export default class ColorTheLeaves extends Plugin {
                 this.addTagToLeaves('#leaf');
             }
         });
+
+
+        this.addCommand({
+            id: 'remove-all-tags',
+            name: 'Remove All Tags',
+            callback: () => {
+                this.removeAllTags();
+            }
+        });
     }
 
     addTagToLeaves(tagName: string) {
@@ -53,10 +62,22 @@ export default class ColorTheLeaves extends Plugin {
         return leafNotes;
     }
 
-    getOutgoingLinks(note: TFile): string[] {
-        // Logic to retrieve outgoing links from a note
-        // You might need to use regular expressions or a Markdown parser for this
-        return [];
+	getOutgoingLinks(note: TFile): string[] {
+        const outgoingLinks: string[] = [];
+        const content = this.app.vault.cachedRead(note);
+
+        // Regular expression to match links in Markdown format: [link text](file path)
+        const linkRegex = /\[.*?\]\((.*?)\)/g;
+        let match;
+
+        // Find all outgoing links in the note's content
+        while ((match = linkRegex.exec(content)) !== null) {
+            // Extract the link target
+            const linkTarget = match[1];
+            outgoingLinks.push(linkTarget);
+        }
+
+        return outgoingLinks;
     }
 
     async addTagToNote(note: TFile, tagName: string) {
@@ -64,6 +85,22 @@ export default class ColorTheLeaves extends Plugin {
         content += `\n${tagName}`;
         await this.app.vault.modify(note, content);
     }
+
+    async removeAllTags() {
+        const allFiles = this.app.vault.getMarkdownFiles();
+        allFiles.forEach(async (file) => {
+            let content = await this.app.vault.read(file);
+            content = this.removeTags(content);
+            await this.app.vault.modify(file, content);
+        });
+    }
+
+    removeTags(content: string): string {
+        // Regular expression to match tags
+        const tagRegex = /#\w+/g;
+        return content.replace(tagRegex, '').trim();
+    }
+
 
     async loadSettings() {
         this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
